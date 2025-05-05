@@ -1,7 +1,7 @@
 ---
 title: "Exposure to Digital Alcohol Marketing and Use: Meta-Analysis"
 author: Scott I. Donaldson, PhD
-Date: 12-18-24
+Date: 04-22-25
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -18,13 +18,13 @@ library(ggplot2)
 library(metasens)
 library(stringr)
 library(poibin)
+library(robvis)
 ```
 
 # Read Data from Excel
 ```{r Read data}
 Meta <- read_excel("Alc_Meta_DATA.xlsx", 
     sheet = "Statistics")
-
 ```
 
 # Data Transformations
@@ -80,7 +80,7 @@ Meta.SUS <- subset(Meta, FINAL_DV=='Susceptibility to use')
 
 ```
 
-# Three-Level Meta-Analytic Models in metafor
+# Three-Level Meta-Analytic Models in Metafor
 ```{r Past 30-day use}
 full.past30 <- rma.mv(yi = OR, 
                      V = Variance, 
@@ -91,7 +91,7 @@ full.past30 <- rma.mv(yi = OR,
                      method = "REML")
 
 summary(full.past30)
-exp(0.5705)
+exp(0.5584)
 
 ```
 ```{r Binge}
@@ -104,7 +104,7 @@ full.binge <- rma.mv(yi = OR,
                      method = "REML")
 
 summary(full.binge)
-exp(0.4925)
+exp(0.5889)
 
 ```
 ```{r Susceptibility to Use}
@@ -130,12 +130,12 @@ full.Lifetime <- rma.mv(yi = OR,
                      method = "REML")
 
 summary(full.Lifetime)
-exp(0.4668)
+exp(0.5284)
 
 ```
 
 ##Variance Component Function
-```{r Past30}
+```{r Run function for variance component}
 #Run Function for Variance Component
 mlm.variance.distribution = var.comp = function(x){
 
@@ -260,7 +260,8 @@ mlm.variance.distribution = var.comp = function(x){
   returnlist
 
 }
-
+```
+```{r Past30}
 # Calculate Variance Distribution
 mlm.variance.distribution(full.past30)
 res <-  var.comp(full.past30)
@@ -343,7 +344,7 @@ summary(Lifetime.model.comp)
 anova(Lifetime.model.comp, full.Lifetime)
 ```
 
-# Random Effects Models and Forest Plots in meta 
+# Random Effects Models and Forest Plots in Meta 
 ```{r Past30days use and forest plot}
 # Past 30 days
 past30days.Use <- metagen(TE = OR,
@@ -362,8 +363,6 @@ past30days.Use <- metagen(TE = OR,
 summary(past30days.Use)
 
 
-
-
 #Forest Plot
 forest(past30days.Use,
             sortvar = OR,
@@ -375,8 +374,9 @@ forest(past30days.Use,
             col.diamond.random = "Black",
             col.by = "black",
             JAMA.pval = TRUE,
-            leftcols = "studlab",
-            calcwidth.hetstat = TRUE)
+            leftcols = c("studlab", "Effect_Size"),
+            leftlabs = c("Study", "Effect Size"),
+            colgap.left = ".3inch")
 
 ```
 ```{r Binge and forest plot}
@@ -407,12 +407,13 @@ forest(Binge.Use,
             col.diamond.random = "Black",
             col.by = "black",
             JAMA.pval = TRUE,
-            leftcols = "studlab",
-            calcwidth.hetstat = TRUE)
+            leftcols = c("studlab", "Effect_Size"),
+            leftlabs = c("Study", "Effect Size"),
+            colgap.left = ".3inch")
 
 ```
 ```{r SUS and forest plot}
-# Ever use
+# SUS
 SUS <- metagen(TE = OR,
             seTE = seTE,
             lower = OR.L.CI,
@@ -437,8 +438,10 @@ forest(SUS,
             print.subgroup.name = FALSE,
             col.diamond.random = "Black",
             col.by = "Black",
-            leftcols = "studlab",
-            calcwidth.hetstat = TRUE)
+            JAMA.pval = TRUE,
+            leftcols = c("studlab", "Effect_Size"),
+            leftlabs = c("Study", "Effect Size"),
+            colgap.left = "1inch")
 
 
 
@@ -459,7 +462,7 @@ Lifetime.Use <- metagen(TE = OR,
 
 summary(Lifetime.Use)
 
-#Forest Plot (850x1150 for the export)
+#Forest Plot 
 forest(Lifetime.Use,
             sortvar = OR,
             overall = TRUE,
@@ -470,10 +473,9 @@ forest(Lifetime.Use,
             col.diamond.random = "Black",
             col.by = "Black",
             JAMA.pval = TRUE,
-            leftcols = "studlab",
-            calcwidth.hetstat = TRUE)
-
-
+            leftcols = c("studlab", "Effect_Size"),
+            leftlabs = c("Study", "Effect Size"),
+            colgap.left = ".3inch")
 
 ```
 ```{r Complete dataset}
@@ -529,7 +531,7 @@ Sampling <- update(Total,
 summary(Sampling)
 ```
 
-# Moderator Analyses in meta
+# Moderator Analyses in Meta
 ```{r Past 30 day use moderators}
 #Engagement
 Past30days.Engagement <- update(past30days.Use,
@@ -682,23 +684,51 @@ Lifetime.age <- update(Lifetime.Use,
 summary(Lifetime.age)
 
 ```
-```{r Forest plots with Age}
-#Forest Plot
-forest(Past30days.age,
-            sortvar = OR,
-            overall = TRUE,
-            random = TRUE,
-            fixed = FALSE,
-            test.subgroup.random = TRUE,
-            print.subgroup.name = FALSE,
-            col.diamond.random = "Black",
-            col.by = "black",
-            JAMA.pval = TRUE,
-            leftcols = "studlab",
-            calcwidth.hetstat = TRUE,
-            calcwidth.subgroup = TRUE,
-            colgap.forest.left  = "2cm")
+```{r Adjusted vs unadjusted bias}
+#Overall
+Overall.Bias<- update(Total,
+                      data=Meta,
+                      subgroup = Adjusted_OR,
+                      tau.common = FALSE,
+                      id = NULL)
 
+summary(Overall.Bias)
+
+#Past30
+Past30.Bias<- update(past30days.Use,
+                      data=Meta.Past30days,
+                      subgroup = Adjusted_OR,
+                      tau.common = FALSE,
+                      id = NULL)
+
+summary(Past30.Bias)
+
+#Binge
+Binge.Bias<- update(Binge.Use,
+                    data=Meta.Binge,
+                    subgroup = Adjusted_OR,
+                    tau.common = FALSE,
+                    id = NULL)
+
+summary(Binge.Bias)
+
+#Susceptibility
+SUS.Bias<- update(SUS,
+                  data=Meta.SUS,
+                  subgroup = Adjusted_OR,
+                  tau.common = FALSE,
+                  id = NULL)
+
+summary(SUS.Bias)
+
+#Lifetime
+Lifetime.Bias<- update(Lifetime.Use,
+                  data=Meta.Lifetime,
+                  subgroup = Adjusted_OR,
+                  tau.common = FALSE,
+                  id = NULL)
+
+summary(Lifetime.Bias)
 
 ```
 
@@ -1697,22 +1727,41 @@ funnel.limitmeta(lmeta, xlim = c(1, 3))
 funnel.limitmeta(lmeta, xlim = c(1, 3), shrunken = TRUE)
 
 # PCurve Analysis
+##Run dmetar function above
 pcurve(PubBias)
-
-rma(yi, 
-    vi, 
-    data=dat, method="EE")
-
-
-
-
 
 ```
 
+# ROBINS E Bias
+```{r Robins E}
+# Load your data
+rob_data <- read_excel("ROBINS_E_robvis_ready.xlsx")
 
+# Add the missing domain with default value (e.g., "Not Applicable")
+rob_data$`Bias due to deviations from intended exposures` <- "Not Applicable"
 
+# Reorder columns to match robvis expectation
+rob_data <- rob_data[, c("Study",
+                         "Bias due to confounding",
+                         "Bias in selection of participants",
+                         "Bias in measurement of the exposure",
+                         "Bias due to deviations from intended exposures",
+                         "Bias in measurement of the outcome",
+                         "Bias due to missing data",
+                         "Bias in selection of the reported result",
+                         "Overall Risk of Bias")]
 
+# Plot
+rob_summary(rob_data, tool = "ROBINS-E")
 
+# Generate the traffic light plot
+Rob_plot <- rob_traffic_light(rob_data, tool = "ROBINS-E")
 
+ggsave("ROBINS_E_Traffic_Light_TALL.png", 
+       plot = Rob_plot,
+       dpi = 300,
+       width = 10,     # same width
+       height = 14)    # taller height
 
+```
 
